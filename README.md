@@ -127,7 +127,7 @@ Custom-built generator simulating:
 
 # 🧠 Key Features
 
-## 📥 1. Data Ingestion Framework
+## 📥 1. Data Ingestion Framework 🚧
 
 - Python-based ingestion SDK
 - MinIO file uploads
@@ -135,28 +135,28 @@ Custom-built generator simulating:
 - idempotent batch processing
 - partition-aware ingestion
 
-## ⚙️ 2. Airflow Orchestration
+## ⚙️ 2. Airflow Orchestration 📅
 
 - DAG-based pipeline management
 - dynamic DAG generation
 - retry + failure handling
 - backfill and replay support
 
-## ⚡ 3. Spark Processing Engine
+## ⚡ 3. Spark Processing Engine 📅
 
 - Bronze → Silver transformations
 - deduplication & normalization
 - join-heavy data modeling
 - scalable batch processing
 
-## 🧱 4. dbt Transformation Layer
+## 🧱 4. dbt Transformation Layer 📅
 
 - Gold-level business models
 - data tests and validation
 - documentation generation
 - metrics layer
 
-## 🧪 5. Data Quality Engine (Python)
+## 🧪 5. Data Quality Engine (Python) 📅
 
 Custom-built framework for:
 
@@ -171,13 +171,13 @@ Includes:
 - YAML-based rule definitions
 - reusable validation classes
 
-## 🚨 6. Schema Drift Detection
+## 🚨 6. Schema Drift Detection 📅
 
 - detects changes in upstream data contracts
 - alerts on breaking schema changes
 - supports versioned schema evolution
 
-## 📉 7. Anomaly Detection System
+## 📉 7. Anomaly Detection System 📅
 
 - statistical monitoring (z-score, rolling averages)
 - ML-based detection (Isolation Forest)
@@ -186,7 +186,7 @@ Includes:
   - shipment delays
   - fraud patterns
 
-## 📊 8. BI & Reporting Layer
+## 📊 8. BI & Reporting Layer 📅
 
 ### Apache Superset dashboards:
 
@@ -200,7 +200,7 @@ Includes:
 - HTML summaries
 - automated incident reports
 
-## 🧭 9. Metadata & Lineage Engine
+## 🧭 9. Metadata & Lineage Engine 📅
 
 - tracks dataset dependencies
 - integrates with Airflow + dbt metadata
