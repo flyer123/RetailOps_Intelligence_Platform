@@ -1,0 +1,183 @@
+version: '3.9'
+
+x-airflow-common:
+  &airflow-common
+  image: apache/airflow:2.8.1
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_AIRFLOW_DB}"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-apache-spark pyspark"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+  user: "${AIRFLOW_UID}:0"
+  depends_on:
+    - postgres
+
+
+services:
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_AIRFLOW_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - airflow-spark-network
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      interval: 5s
+      retries: 5
+
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "${AIRFLOW_PORT}:8080"
+    networks:
+      - airflow-spark-network
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - airflow-spark-network
+
+
+  airflow-init:
+    <<: *airflow-common
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - airflow-spark-network
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+
+        airflow db upgrade
+
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
+  
+
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ':9001'
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    networks:
+      - airflow-spark-network
+    volumes:
+      - minio-data:/data
+
+
+  dbt:
+    build:
+      context: ./docker/dbt
+    container_name: dbt
+    working_dir: /usr/app
+    volumes:
+      - ./dbt:/usr/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - airflow-spark-network
+    stdin_open: true
+    tty: true
+
+
+  superset-init:
+    build:
+      context: ./docker/superset
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - airflow-spark-network
+    volumes:
+      - ./docker/superset/superset_config.py:/app/pythonpath/superset_config.py
+    environment:
+      SUPERSET_SECRET_KEY: "supersecret"
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_SUPERSET_DB}
+    command: >
+      bash -c "
+        superset db upgrade &&
+        superset fab create-admin \
+          --username admin \
+          --firstname Admin \
+          --lastname User \
+          --email admin@example.com \
+          --password admin || true &&
+        superset init
+      "
+
+
+  superset:
+    build:
+      context: ./docker/superset
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: "supersecret"
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_SUPERSET_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      superset-init:
+        condition: service_completed_successfully
+    command: >
+      bash -c "superset run -h 0.0.0.0 -p 8088"
+    networks:
+      - airflow-spark-network
+    volumes:
+      - ./docker/superset/superset_config.py:/app/pythonpath/superset_config.py
+
+
+volumes:
+  minio-data:
+  postgres-db-volume:
+
+
+networks:
+  airflow-spark-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.10.0.0/24

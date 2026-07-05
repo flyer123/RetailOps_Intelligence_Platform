@@ -1,0 +1,15 @@
+ALTER DATABASE airflow OWNER TO airflow;
+ALTER DATABASE superset OWNER TO superset;
+ALTER DATABASE retailops OWNER TO retailops;
+
+GRANT ALL PRIVILEGES
+ON DATABASE airflow
+TO airflow;
+
+GRANT ALL PRIVILEGES
+ON DATABASE superset
+TO superset;
+
+GRANT ALL PRIVILEGES
+ON DATABASE retailops
+TO retailops;
